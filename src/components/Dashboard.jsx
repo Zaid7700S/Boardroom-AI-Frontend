@@ -13,6 +13,7 @@ export default function Dashboard({ session, groqKey, openOnboarding }) {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(false)
   const [activeChatId, setActiveChatId] = useState(null)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   useEffect(() => {
     fetchHistory()
@@ -32,13 +33,13 @@ export default function Dashboard({ session, groqKey, openOnboarding }) {
     setStatus('')
     setPlan('')
     setChartUrl('')
-    setActiveChatId(null) // Clear active indicator
+    setActiveChatId(null)
+    setIsSidebarOpen(false)
   }
 
   const deleteChat = async (e, item) => {
-    e.stopPropagation() // Prevent triggering the loadHistoryItem click
+    e.stopPropagation()
 
-    // 1. Delete from Database
     const { error: dbError } = await supabase
       .from('boardroom_sessions')
       .delete()
@@ -49,7 +50,6 @@ export default function Dashboard({ session, groqKey, openOnboarding }) {
       return
     }
 
-    // 2. Delete Chart from Storage (if it exists)
     if (item.chart_url) {
       const filePath = item.chart_url.split('/charts/')[1]
       if (filePath) {
@@ -57,10 +57,8 @@ export default function Dashboard({ session, groqKey, openOnboarding }) {
       }
     }
 
-    // 3. Update UI
     setHistory(prev => prev.filter(h => h.id !== item.id))
     
-    // If the deleted chat was actively open, clear the main view
     if (activeChatId === item.id) {
       startNewChat()
     }
@@ -77,7 +75,7 @@ export default function Dashboard({ session, groqKey, openOnboarding }) {
     setStatus('Starting debate...')
     setPlan('')
     setChartUrl('')
-    setActiveChatId(null) // Clear active indicator while generating new one
+    setActiveChatId(null)
 
     try {
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/stream`, {
@@ -117,7 +115,7 @@ export default function Dashboard({ session, groqKey, openOnboarding }) {
                 setChartUrl(data.chart_url)
                 setStatus('Debate complete.')
                 setLoading(false)
-                setActiveChatId(data.session_id) // Set new chat as active
+                setActiveChatId(data.session_id)
                 fetchHistory()
               }
             } catch (err) {
@@ -144,7 +142,8 @@ export default function Dashboard({ session, groqKey, openOnboarding }) {
     })
     setDebate(parsedDebate)
     setStatus('Viewing archived session.')
-    setActiveChatId(item.id) // Set clicked chat as active
+    setActiveChatId(item.id)
+    setIsSidebarOpen(false)
   }
 
   const downloadPDF = () => {
@@ -234,15 +233,27 @@ export default function Dashboard({ session, groqKey, openOnboarding }) {
   return (
     <div className="h-screen flex flex-col bg-white text-black">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center sticky top-0 z-10 shadow-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-bold text-sm">B</div>
-          <h1 className="text-lg font-bold text-black">Boardroom AI</h1>
-        </div>
+      <header className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex justify-between items-center sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-3">
+          {/* Mobile Hamburger Menu Button */}
+          <button 
+            onClick={() => setIsSidebarOpen(true)}
+            className="md:hidden p-2 -ml-2 text-black hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
+          
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-bold text-sm">B</div>
+            <h1 className="text-lg font-bold text-black hidden sm:block">Boardroom AI</h1>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Hide this on mobile, we move it to the sidebar drawer */}
           <button 
             onClick={openOnboarding}
-            className="text-xs text-gray-500 hover:text-black font-medium transition-colors"
+            className="text-xs text-gray-500 hover:text-black font-medium transition-colors hidden md:block"
           >
             Update Groq Key
           </button>
@@ -255,18 +266,38 @@ export default function Dashboard({ session, groqKey, openOnboarding }) {
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Mobile Backdrop Overlay */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-30 md:hidden animate-fade-in-up"
+            onClick={() => setIsSidebarOpen(false)}
+          ></div>
+        )}
+
         {/* Sidebar */}
-        <aside className="w-72 border-r border-gray-200 bg-white flex-shrink-0 flex flex-col">
-          <div className="p-3 border-b border-gray-200">
+        <aside className={`
+          fixed md:relative top-0 left-0 z-50 md:z-auto w-72 h-screen md:h-full border-r border-gray-200 bg-white flex-shrink-0 flex flex-col
+          transition-transform duration-300 ease-in-out
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        `}>
+          {/* Mobile Close Button (Inside Sidebar) */}
+          <div className="p-3 border-b border-gray-200 flex items-center justify-between">
             <button 
               onClick={startNewChat}
-              className="w-full bg-black text-white py-2.5 font-semibold text-sm rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+              className="flex-1 bg-black text-white py-2.5 font-semibold text-sm rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-sm hover:shadow-md flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
               New Problem
             </button>
+            <button 
+              onClick={() => setIsSidebarOpen(false)}
+              className="ml-2 md:hidden p-2 text-gray-500 hover:text-black hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
           </div>
+
           <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">Session History</div>
           <div className="flex-1 overflow-y-auto px-2 pb-4">
             {history.length === 0 && (
@@ -291,7 +322,6 @@ export default function Dashboard({ session, groqKey, openOnboarding }) {
                     {item.problem}
                   </p>
                   
-                  {/* Delete Button (Appears on Hover) */}
                   <button 
                     onClick={(e) => deleteChat(e, item)}
                     className="absolute top-3 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1 rounded-md hover:bg-gray-200"
@@ -303,23 +333,35 @@ export default function Dashboard({ session, groqKey, openOnboarding }) {
               )
             })}
           </div>
+
+          {/* Mobile Update Groq Key Button (Footer of Sidebar) */}
+          <div className="p-3 border-t border-gray-200 mt-auto md:hidden">
+            <button 
+              onClick={() => {
+                openOnboarding()
+                setIsSidebarOpen(false)
+              }}
+              className="w-full text-left text-xs text-gray-500 hover:text-black font-medium p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              Update Groq Key
+            </button>
+          </div>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-8 bg-gray-50">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-50">
           <div className="max-w-4xl mx-auto">
             {/* Input Form */}
-                        <form onSubmit={startDebate} className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+            <form onSubmit={startDebate} className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Define the Business Problem</label>
               <textarea
                 value={problem}
                 onChange={(e) => setProblem(e.target.value)}
                 onKeyDown={(e) => {
-                  // If Enter is pressed without Shift, submit the form
                   if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault(); // Prevent default newline
+                    e.preventDefault();
                     if (!loading) {
-                      e.currentTarget.form.requestSubmit(); // Trigger form submit
+                      e.currentTarget.form.requestSubmit();
                     }
                   }
                 }}
@@ -331,7 +373,7 @@ export default function Dashboard({ session, groqKey, openOnboarding }) {
               <button 
                 type="submit" 
                 disabled={loading}
-                className="bg-black text-white px-6 py-2.5 font-semibold text-sm rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full md:w-auto bg-black text-white px-6 py-2.5 font-semibold text-sm rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Debating...' : 'Start Boardroom'}
               </button>
@@ -376,7 +418,7 @@ export default function Dashboard({ session, groqKey, openOnboarding }) {
 
             {/* Results Area */}
             {(plan || chartUrl) && (
-              <div className="mt-12 bg-white rounded-2xl shadow-sm border border-gray-200 p-8 animate-fade-in-up">
+              <div className="mt-12 bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-8 animate-fade-in-up">
                 <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
                   <h3 className="text-base font-bold text-black">Final Strategic Report</h3>
                   <button 
