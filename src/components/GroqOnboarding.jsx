@@ -13,7 +13,6 @@ export default function GroqOnboarding({ saveGroqKey, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in-up">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 border border-gray-200 relative">
-        {/* Close Button */}
         <button 
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-black transition-colors"
@@ -27,7 +26,7 @@ export default function GroqOnboarding({ saveGroqKey, onClose }) {
         </div>
         
         <p className="text-gray-600 mb-6 text-sm leading-relaxed">
-          To power the autonomous AI executives, you need to provide a Groq API Key. Your key is saved securely in your Supabase account, so you won't need to enter it again on other devices.
+          To power the autonomous AI executives, you need to provide a Groq API Key. Your key is stored securely in your browser.
         </p>
 
         <form onSubmit={handleSave} className="space-y-4">
