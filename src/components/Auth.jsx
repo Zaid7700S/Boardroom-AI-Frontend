@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
-export default function Auth() {
+export default function Auth({ handleGuestLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -83,13 +83,19 @@ export default function Auth() {
 
         <button
           onClick={handleGoogleLogin}
-          className="w-full bg-white text-black py-3 font-semibold rounded-xl border border-gray-300 hover:bg-gray-50 transition-all duration-300 flex items-center justify-center gap-2"
+          className="w-full bg-white text-black py-3 font-semibold rounded-xl border border-gray-300 hover:bg-gray-50 transition-all duration-300 flex items-center justify-center gap-2 mb-3"
         >
-          {/* Monochrome Google Icon */}
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" />
           </svg>
           Continue with Google
+        </button>
+
+        <button
+          onClick={handleGuestLogin}
+          className="w-full bg-transparent text-gray-500 hover:text-black py-2 text-sm font-medium transition-colors"
+        >
+          Continue as Guest
         </button>
       </div>
     </div>
