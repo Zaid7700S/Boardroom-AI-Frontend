@@ -6,14 +6,16 @@ import GroqOnboarding from './components/GroqOnboarding'
 
 export default function App() {
   const [session, setSession] = useState(null)
-  const [groqKey, setGroqKey] = useState('')
+  const [isGuest, setIsGuest] = useState(localStorage.getItem('isGuest') === 'true')
+  const [groqKey, setGroqKey] = useState(localStorage.getItem('groqKey') || '')
   const [showOnboarding, setShowOnboarding] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       if (session) {
-        // Read key from Supabase user metadata
+        setIsGuest(false)
+        localStorage.removeItem('isGuest')
         const key = session.user.user_metadata?.groq_api_key || ''
         setGroqKey(key)
         if (!key) setShowOnboarding(true)
@@ -23,32 +25,53 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       if (session) {
+        setIsGuest(false)
         const key = session.user.user_metadata?.groq_api_key || ''
         setGroqKey(key)
-      } else {
-        setGroqKey('')
       }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  // Function to save the key to Supabase
+  useEffect(() => {
+    if (isGuest && !groqKey) {
+      setShowOnboarding(true)
+    }
+  }, [isGuest, groqKey])
+
   const saveGroqKey = async (newKey) => {
-    const { error } = await supabase.auth.updateUser({
-      data: { groq_api_key: newKey }
-    })
-    
-    if (error) {
-      alert('Failed to save API key to Supabase.')
-    } else {
+    if (isGuest) {
+      localStorage.setItem('groqKey', newKey)
       setGroqKey(newKey)
       setShowOnboarding(false)
+    } else {
+      const { error } = await supabase.auth.updateUser({ data: { groq_api_key: newKey } })
+      if (error) alert('Failed to save API key to Supabase.')
+      else {
+        setGroqKey(newKey)
+        setShowOnboarding(false)
+      }
     }
   }
 
-  if (!session) return <Auth />
-  
+  const handleGuestLogin = () => {
+    localStorage.setItem('isGuest', 'true')
+    setIsGuest(true)
+  }
+
+  const exitGuestMode = () => {
+    localStorage.removeItem('isGuest')
+    localStorage.removeItem('groqKey')
+    setIsGuest(false)
+    setGroqKey('')
+    supabase.auth.signOut()
+  }
+
+  if (!session && !isGuest) {
+    return <Auth handleGuestLogin={handleGuestLogin} />
+  }
+
   return (
     <>
       {showOnboarding && (
@@ -60,7 +83,9 @@ export default function App() {
       <Dashboard 
         session={session} 
         groqKey={groqKey} 
-        openOnboarding={() => setShowOnboarding(true)} 
+        openOnboarding={() => setShowOnboarding(true)}
+        isGuest={isGuest}
+        exitGuestMode={exitGuestMode}
       />
     </>
   )
