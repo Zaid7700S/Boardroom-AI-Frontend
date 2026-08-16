@@ -112,6 +112,9 @@ export default function Dashboard({ session, groqKey, openOnboarding, isGuest, e
                 setDebate(prev => [...prev, data])
               } else if (eventType === 'status') {
                 setStatus(data.message)
+              } else if (eventType === 'error') {
+                setStatus('Error: ' + data.message)
+                setLoading(false)
               } else if (eventType === 'complete') {
                 setPlan(data.action_plan)
                 setChartUrl(data.chart_url)
@@ -126,6 +129,17 @@ export default function Dashboard({ session, groqKey, openOnboarding, isGuest, e
           }
         }
       }
+
+      // Safety net: if the connection closed without a 'complete' or 'error' event
+      // (e.g. the server crashed hard, or the connection just dropped), don't leave
+      // the UI stuck on "Drafting..." forever.
+      setLoading(current => {
+        if (current) {
+          setStatus('Error: connection closed unexpectedly before the response finished.')
+          return false
+        }
+        return current
+      })
     } catch (error) {
       console.error('Fetch error:', error)
       setStatus('Error: ' + error.message)
