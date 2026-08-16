@@ -20,11 +20,16 @@ export default function Dashboard({ session, groqKey, openOnboarding, isGuest, e
   }, [isGuest])
 
   const fetchHistory = async () => {
-    const { data, error } = await supabase
-      .from('boardroom_sessions')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (!error) setHistory(data)
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      if (!currentSession) return
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/history`, {
+        headers: { 'Authorization': `Bearer ${currentSession.access_token}` }
+      })
+      if (response.ok) setHistory(await response.json())
+    } catch (error) {
+      console.error('Failed to fetch history:', error)
+    }
   }
 
   const startNewChat = () => {
@@ -40,21 +45,16 @@ export default function Dashboard({ session, groqKey, openOnboarding, isGuest, e
   const deleteChat = async (e, item) => {
     e.stopPropagation()
 
+    // Deleting the plan row cascades to its chat messages automatically (FK ON DELETE CASCADE).
+    // The chart is stored inline as base64 on the plan row, so there's no separate storage file to clean up.
     const { error: dbError } = await supabase
-      .from('boardroom_sessions')
+      .from('plans')
       .delete()
       .eq('id', item.id)
 
     if (dbError) {
       alert('Error deleting session: ' + dbError.message)
       return
-    }
-
-    if (item.chart_url) {
-      const filePath = item.chart_url.split('/charts/')[1]
-      if (filePath) {
-        await supabase.storage.from('charts').remove([filePath])
-      }
     }
 
     setHistory(prev => prev.filter(h => h.id !== item.id))
@@ -137,12 +137,7 @@ export default function Dashboard({ session, groqKey, openOnboarding, isGuest, e
     setProblem(item.problem)
     setPlan(item.action_plan)
     setChartUrl(item.chart_url)
-    const debateLines = item.debate_history.split('\n\n').filter(Boolean)
-    const parsedDebate = debateLines.map(line => {
-      const match = line.match(/^\[(.*?)\]: (.*)/)
-      return match ? { agent: match[1], content: match[2] } : { agent: 'System', content: line }
-    })
-    setDebate(parsedDebate)
+    setDebate(item.messages || [])
     setStatus('Viewing archived session.')
     setActiveChatId(item.id)
     setIsSidebarOpen(false)

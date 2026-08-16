@@ -10,15 +10,27 @@ export default function App() {
   const [groqKey, setGroqKey] = useState(localStorage.getItem('groqKey') || '')
   const [showOnboarding, setShowOnboarding] = useState(false)
 
+  const loadGroqKey = async () => {
+    // Key is stored encrypted in Supabase Vault; fetched via a SECURITY DEFINER RPC
+    // scoped to auth.uid() rather than kept in user_metadata.
+    const { data, error } = await supabase.rpc('get_groq_key')
+    if (error) {
+      console.error('Failed to load Groq key:', error)
+      setShowOnboarding(true)
+      return
+    }
+    const key = data || ''
+    setGroqKey(key)
+    if (!key) setShowOnboarding(true)
+  }
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       if (session) {
         setIsGuest(false)
         localStorage.removeItem('isGuest')
-        const key = session.user.user_metadata?.groq_api_key || ''
-        setGroqKey(key)
-        if (!key) setShowOnboarding(true)
+        loadGroqKey()
       }
     })
 
@@ -26,8 +38,7 @@ export default function App() {
       setSession(session)
       if (session) {
         setIsGuest(false)
-        const key = session.user.user_metadata?.groq_api_key || ''
-        setGroqKey(key)
+        loadGroqKey()
       }
     })
 
@@ -46,8 +57,8 @@ export default function App() {
       setGroqKey(newKey)
       setShowOnboarding(false)
     } else {
-      const { error } = await supabase.auth.updateUser({ data: { groq_api_key: newKey } })
-      if (error) alert('Failed to save API key to Supabase.')
+      const { error } = await supabase.rpc('save_groq_key', { new_key: newKey })
+      if (error) alert('Failed to save API key: ' + error.message)
       else {
         setGroqKey(newKey)
         setShowOnboarding(false)
@@ -77,7 +88,8 @@ export default function App() {
       {showOnboarding && (
         <GroqOnboarding 
           saveGroqKey={saveGroqKey} 
-          onClose={() => setShowOnboarding(false)} 
+          onClose={() => setShowOnboarding(false)}
+          isGuest={isGuest}
         />
       )}
       <Dashboard 

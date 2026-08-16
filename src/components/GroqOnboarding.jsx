@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function GroqOnboarding({ saveGroqKey, onClose }) {
+export default function GroqOnboarding({ saveGroqKey, onClose, isGuest }) {
   const [key, setKey] = useState('')
 
   const handleSave = (e) => {
@@ -26,7 +26,10 @@ export default function GroqOnboarding({ saveGroqKey, onClose }) {
         </div>
         
         <p className="text-gray-600 mb-6 text-sm leading-relaxed">
-          To power the autonomous AI executives, you need to provide a Groq API Key. Your key is stored securely in your browser.
+          To power the autonomous AI executives, you need to provide a Groq API Key.{' '}
+          {isGuest
+            ? 'Your key is stored in your browser only.'
+            : 'Your key is encrypted and stored securely in your account.'}
         </p>
 
         <form onSubmit={handleSave} className="space-y-4">
