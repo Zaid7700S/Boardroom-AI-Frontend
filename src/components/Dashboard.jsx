@@ -91,17 +91,26 @@ export default function Dashboard({ session, groqKey, openOnboarding, isGuest, e
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
+      let buffer = ''
+      let eventType = 'message'
 
       while (true) {
         const { done, value } = await reader.read()
-        if (done) break
+        if (value) {
+          // stream: true keeps partial multi-byte UTF-8 sequences intact across reads
+          buffer += decoder.decode(value, { stream: true })
+        }
 
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
+        // Only process complete lines. A line (e.g. the 'data: ' line carrying the
+        // base64 chart image) can easily be split across two separate reads - keep
+        // any trailing partial line in the buffer until more data arrives instead of
+        // trying to JSON.parse a truncated fragment.
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
 
         for (const line of lines) {
           if (line.startsWith('event: ')) {
-            var eventType = line.replace('event: ', '').trim()
+            eventType = line.replace('event: ', '').trim()
           } else if (line.startsWith('data: ')) {
             const dataStr = line.replace('data: ', '').trim()
             if (dataStr === '') continue
@@ -124,10 +133,12 @@ export default function Dashboard({ session, groqKey, openOnboarding, isGuest, e
                 if (!isGuest) fetchHistory()
               }
             } catch (err) {
-              console.error('Error parsing SSE data:', err)
+              console.error('Error parsing SSE data:', err, dataStr)
             }
           }
         }
+
+        if (done) break
       }
 
       // Safety net: if the connection closed without a 'complete' or 'error' event
