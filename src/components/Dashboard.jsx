@@ -64,6 +64,31 @@ export default function Dashboard({ session, groqKey, openOnboarding, isGuest, e
     }
   }
 
+  const wakeUpServer = async () => {
+    // Render's free tier spins the backend down after inactivity, and the first
+    // request against a sleeping instance can take up to ~50s to respond while it
+    // boots back up. Ping the lightweight /health endpoint first - if it hasn't
+    // resolved within a short window, the backend is almost certainly asleep, so
+    // let the user know instead of leaving them staring at a stalled screen.
+    // If the backend is already warm, this check resolves fast and the message
+    // never shows.
+    const healthCheck = fetch(`${import.meta.env.VITE_BACKEND_URL}/health`, { method: 'HEAD' })
+
+    const slowStartTimer = setTimeout(() => {
+      setStatus('Waking up the server… this can take up to a minute on the first request after inactivity.')
+    }, 1500)
+
+    try {
+      await healthCheck
+    } catch {
+      // A failed health check (network error, timeout, etc.) doesn't necessarily mean
+      // anything is wrong - the actual /api/stream request below will hit the same
+      // backend and either succeed once it's awake or surface a real error.
+    } finally {
+      clearTimeout(slowStartTimer)
+    }
+  }
+
   const startDebate = async (e) => {
     e.preventDefault()
     if (!groqKey) {
@@ -78,6 +103,9 @@ export default function Dashboard({ session, groqKey, openOnboarding, isGuest, e
     setActiveChatId(null)
 
     try {
+      await wakeUpServer()
+      setStatus('Starting debate...') // reset in case the wake-up message above was shown
+
       const headers = { 'Content-Type': 'application/json' }
       if (!isGuest && session) {
         headers['Authorization'] = `Bearer ${session.access_token}`
