@@ -36,7 +36,7 @@ export default function Auth({ handleGuestLogin }) {
         </div>
         <p className="text-gray-500 mb-8 text-sm">Autonomous Strategic Planning</p>
         
-        <form className="space-y-4">
+        <form className="space-y-4" onSubmit={handleLogin}>
           <div>
             <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Email</label>
             <input
@@ -60,13 +60,14 @@ export default function Auth({ handleGuestLogin }) {
           
           <div className="flex flex-col gap-3 pt-2">
             <button
-              onClick={handleLogin}
+              type="submit"
               disabled={loading}
               className="w-full bg-black text-white py-3 font-semibold rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50"
             >
               {loading ? 'Loading...' : 'Sign In'}
             </button>
             <button
+              type="button"
               onClick={handleSignUp}
               className="w-full bg-white text-black py-3 font-semibold rounded-xl border border-gray-300 hover:bg-gray-50 transition-all duration-300"
             >
